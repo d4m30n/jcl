@@ -1,4 +1,4 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +20,7 @@ public class MeasureNull implements MeasureInterface {
 	}
 
 	@Override
-	public void print(long currentRuntime) {
+	public void print(long currentRuntime, ParameterInterface<?>[] parameters) {
 		return;
 	}
 

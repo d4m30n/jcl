@@ -1,6 +1,7 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.concurrent.TimeUnit;
 
 import com.sun.management.OperatingSystemMXBean;
@@ -9,12 +10,14 @@ public class MeasureSystem implements MeasureInterface {
 
 	private static OperatingSystemMXBean operatingSystemMXBean = (OperatingSystemMXBean) ManagementFactory
 			.getOperatingSystemMXBean();
+	private static ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
 
-	private double _currentCPU = 0;
-	private double _currentMemory = 0;
-	private Double _setpointCPU = null;
-	private Double _setpointMemory = null;
-	private long _measureIntervalInMillis;
+	private double _currentCPU = 0;// Holds the last current CPU measured by the system
+	private double _currentMemory = 0;// Holds the last current Memory measured by the system
+	private Double _setpointCPU = null;// Holds the desired cpu setpoint
+	private Double _setpointMemory = null;// Holds the desired memory setpoint
+	private long _measureIntervalInMillis;// Holds the interval to measure the system at in milliseconds
+	private final double _percentageForCores;
 
 	/**
 	 * 
@@ -31,10 +34,12 @@ public class MeasureSystem implements MeasureInterface {
 		_measureIntervalInMillis = timeFormat.toMillis(MeasureInterval);
 		_setpointCPU = cpuSetpoint;
 		_setpointMemory = memorySetpoint;
+		_percentageForCores = 100.0 * operatingSystemMXBean.getAvailableProcessors();
 	}
 
-	public MeasureSystem() {
+	public MeasureSystem(long threadID) {
 		_measureIntervalInMillis = TimeUnit.SECONDS.toMillis(1);
+		_percentageForCores = 100.0 * operatingSystemMXBean.getAvailableProcessors();
 	}
 
 	public static int NUMBEROFMEASUREMENTVALUES = 2;
@@ -43,10 +48,30 @@ public class MeasureSystem implements MeasureInterface {
 		CPU, MEMORY;
 	}
 
+	private boolean firstPrint = true;
+
 	@Override
-	public void print(long currentRuntimeInMillis) {
+	public void print(long currentRuntimeInMillis, ParameterInterface<?>[] parameters) {
+		if (firstPrint) {
+			firstPrint = false;
+			System.out.printf("CPU,MEMORY");
+			if (parameters != null) {
+				for (ParameterInterface<?> p : parameters) {
+					System.out.printf(",");
+					System.out.printf("%s", p.getName());
+				}
+			}
+			System.out.printf(",time%n");
+		}
 		long currentRuntimeInSec = TimeUnit.MILLISECONDS.toSeconds(currentRuntimeInMillis);
-		System.out.printf("%.2f\t%.2f\t%d%n", _currentCPU, _currentMemory, currentRuntimeInSec);
+		System.out.printf("%.2f,%.2f", _currentCPU, _currentMemory);
+		if (parameters != null) {
+			for (ParameterInterface<?> p : parameters) {
+				System.out.printf(",");
+				p.printValue();
+			}
+		}
+		System.out.printf(",%d%n", currentRuntimeInSec);
 	}
 
 	@Override
@@ -66,7 +91,7 @@ public class MeasureSystem implements MeasureInterface {
 	 * @return - The percentage of CPU used by the JVM
 	 */
 	private double measureCPU() {
-		return operatingSystemMXBean.getSystemCpuLoad();
+		return operatingSystemMXBean.getProcessCpuLoad() * (_percentageForCores);
 	}
 
 	/**
@@ -80,7 +105,7 @@ public class MeasureSystem implements MeasureInterface {
 		long totalFreeMemory = operatingSystemMXBean.getFreePhysicalMemorySize()
 				+ operatingSystemMXBean.getFreeSwapSpaceSize();
 		long totalUsedMemory = totalAvalableMemory - totalFreeMemory;
-		return (double) totalUsedMemory / totalAvalableMemory;
+		return 100.0 * totalUsedMemory / totalAvalableMemory;
 	}
 
 	@Override

@@ -1,4 +1,4 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 interface MeasureInterface {
 
@@ -8,7 +8,7 @@ interface MeasureInterface {
 	 * @param currentRuntime - The current time the system has been running in
 	 *                       milliseconds
 	 */
-	public void print(long currentRuntime);
+	public void print(long currentRuntime, ParameterInterface<?>[] parameters);
 
 	/**
 	 * Used to measure the required values

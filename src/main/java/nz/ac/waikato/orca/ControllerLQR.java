@@ -1,4 +1,4 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 public class ControllerLQR extends ControllerHead {
 
@@ -7,10 +7,11 @@ public class ControllerLQR extends ControllerHead {
 	private double[][] _C;
 	private double[][] _D;
 
-	private double[][] _K;
+	// private double[][] _K;
 	private double[][] _negativeK;
 
 	private double[][] _x;
+	private double[][] _y;
 	private double[][] _u;
 	private int[] _uIDs;
 
@@ -84,7 +85,7 @@ public class ControllerLQR extends ControllerHead {
 		_B = B;
 		_C = C;
 		_D = D;
-		_K = K;
+		// _K = K;
 		_negativeK = mult(K, -1);
 		_x = tmpx;
 		_u = tmpu;
@@ -92,7 +93,7 @@ public class ControllerLQR extends ControllerHead {
 	}
 
 	@Override
-	public boolean evaluate(Parameter[] parameters, double[] measurements, Double[] setpoints) {
+	public boolean evaluate(ParameterInterface<?>[] parameters, double[] measurements, Double[] setpoints) {
 		if (areAllSetpointsNull(setpoints))
 			return false;
 		double[][] r = new double[setpoints.length][1];
@@ -100,15 +101,29 @@ public class ControllerLQR extends ControllerHead {
 			r[i][0] = setpoints[i];
 		}
 		_x = add(mult(_A, _x), mult(_B, _u));
+		_y = add(mult(_C, _x), mult(_D, _u));
 		_u = subtract(_u, mult(_negativeK, subtract(r, _x)));
 		for (int i = 0; i < _u.length; i++) {
-			for (Parameter p : parameters) {
-				if (p.ID == _uIDs[i]) {
+			for (ParameterInterface<?> p : parameters) {
+				if (p.getID() == _uIDs[i]) {
 					p.set(_u[i][0]);
 				}
 			}
 		}
 		return false;
+	}
+
+	@Override
+	public double[] get() {
+		if (_y == null)
+			return null;
+		double[] values = new double[_y.length];
+		int i = 0;
+		for (double[] d : _y) {
+			values[i] = d[0];
+			i++;
+		}
+		return values;
 	}
 
 	/**

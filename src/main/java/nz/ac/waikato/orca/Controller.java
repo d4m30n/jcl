@@ -1,4 +1,4 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 import java.util.concurrent.TimeUnit;
 
@@ -8,7 +8,7 @@ public class Controller {
 	 */
 	private ControllerInterface _ControllerInterface;
 	private MeasureInterface _MeasureInterface;
-	private Parameter[] _parameters;
+	private ParameterInterface<?>[] _parameters;
 
 	/**
 	 * Handles the parameters required by the thread
@@ -23,6 +23,7 @@ public class Controller {
 	// Also used to tell the controller to stop
 	private boolean _isRunning = false;
 	private boolean _printOutput = false;
+	private int _skipPrintOutput = 0;
 	// Used to calculate the total running time of controller
 	private long _systemStartTime;
 	// Holds the thread for the timer
@@ -46,7 +47,7 @@ public class Controller {
 	 *                   parameters are not met
 	 */
 	public Controller(ControllerInterface controllerInterface, MeasureInterface measureInterface,
-			Parameter[] parameters, long runtime, TimeUnit timeMeasurement) throws Exception {
+			ParameterInterface<?>[] parameters, long runtime, TimeUnit timeMeasurement) throws Exception {
 		// Checks for a null value given for the controller
 		if (controllerInterface == null)
 			controllerInterface = new ControllerNULL();
@@ -66,11 +67,7 @@ public class Controller {
 		this._MeasureInterface = measureInterface;
 		// If the controller is null then set the rest of the parameters to null as well
 		// else use the parameters given
-		if (controllerInterface instanceof ControllerNULL) {
-			this._parameters = null;
-		} else {
-			this._parameters = parameters;
-		}
+		this._parameters = parameters;
 		// The other classes only look for -1 in the runtime so if it is less than 0
 		// just set to -1 otherwise use the time measurement to convert the time given
 		// into milliseconds
@@ -94,8 +91,12 @@ public class Controller {
 	 *                   parameters are not met
 	 */
 	public Controller(ControllerInterface controllerInterface, MeasureInterface measureInterface,
-			Parameter[] parameters) throws Exception {
+			ParameterInterface<?>[] parameters) throws Exception {
 		this(controllerInterface, measureInterface, parameters, -1, null);
+	}
+
+	public boolean isRunning() {
+		return _isRunning;
 	}
 
 	/**
@@ -108,7 +109,13 @@ public class Controller {
 	public void start(boolean printOutput) throws Exception {
 		if (_isRunning)
 			throw new Exception("Unable to start thread while one is already running");
+		_skipPrintOutput = 0;
+		startRunningThread(printOutput);
+	}
+
+	private void startRunningThread(boolean printOutput) throws Exception {
 		_printOutput = printOutput;
+		_isRunning = true;
 		_runningThread = new Thread(new Runnable() {
 
 			@Override
@@ -119,6 +126,25 @@ public class Controller {
 		_runningThread.start();
 		if (!_runningThread.isAlive())
 			throw new Exception("Unable to start thread");
+	}
+
+	/**
+	 * Create a thread and starts the controller
+	 * 
+	 * @param printOutput     - Boolean indecating weather or not the output
+	 *                        measured should be printed to terminal
+	 * @param skipPrintOutput - Integer indecating the number of measures to skip
+	 *                        printing
+	 * @throws Exception - Throws an exception if there is a thread already running
+	 *                   or was unable to start.
+	 */
+	public void start(boolean printOutput, int skipPrintOutput) throws Exception {
+		if (_isRunning)
+			throw new Exception("Unable to start thread while one is already running");
+		if (skipPrintOutput < 0)
+			skipPrintOutput = 0;
+		_skipPrintOutput = skipPrintOutput;
+		startRunningThread(printOutput);
 	}
 
 	public void stop() {
@@ -143,8 +169,12 @@ public class Controller {
 			_ControllerInterface.evaluate(_parameters, _MeasureInterface.getMeasurements(),
 					_MeasureInterface.getSetpoints());
 			if (_printOutput) {
-				long currentRuntime = System.currentTimeMillis() - _systemStartTime;
-				_MeasureInterface.print(currentRuntime);
+				if (_skipPrintOutput <= 0) {
+					long currentRuntime = System.currentTimeMillis() - _systemStartTime;
+					_MeasureInterface.print(currentRuntime, _parameters);
+				} else {
+					_skipPrintOutput--;
+				}
 			}
 			stopTime = System.currentTimeMillis();
 			long pauseTime = _MeasureInterface.getMeasureIntervalInMillis() - (stopTime - startTime);
@@ -163,7 +193,6 @@ public class Controller {
 	 * no timer is set
 	 */
 	private void startTimer() {
-		_isRunning = true;
 		// No timer is needed if -1 is set
 		if (_runtimeInMillisec == -1)
 			return;

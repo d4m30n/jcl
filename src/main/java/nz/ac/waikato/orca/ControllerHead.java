@@ -1,4 +1,4 @@
-package jcl;
+package nz.ac.waikato.orca;
 
 abstract class ControllerHead implements ControllerInterface {
 
