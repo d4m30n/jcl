@@ -183,6 +183,7 @@ public class Controller {
 					TimeUnit.MILLISECONDS.sleep(pauseTime);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
+					System.out.println("ERROR:" + e);
 				}
 			}
 		}

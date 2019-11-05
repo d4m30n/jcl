@@ -1,18 +1,31 @@
 package nz.ac.waikato.orca;
 
+import org.ejml.simple.SimpleMatrix;
+
 public class ControllerLQR extends ControllerHead {
 
-	private double[][] _A;
-	private double[][] _B;
-	private double[][] _C;
-	private double[][] _D;
+	// private double[][] _A;
+	// private double[][] _B;
+	// private double[][] _C;
+	// private double[][] _D;
 
-	// private double[][] _K;
-	private double[][] _negativeK;
+	// private double[][] _negativeK;
 
-	private double[][] _x;
-	private double[][] _y;
-	private double[][] _u;
+	// private double[][] _x;
+	// private double[][] _y;
+	// private double[][] _u;
+
+	private SimpleMatrix _A;
+	private SimpleMatrix _B;
+	private SimpleMatrix _C;
+	private SimpleMatrix _D;
+
+	private SimpleMatrix _K;
+
+	private SimpleMatrix _x;
+	private SimpleMatrix _y = null;
+	private SimpleMatrix _u;
+
 	private int[] _uIDs;
 
 	/**
@@ -79,18 +92,34 @@ public class ControllerLQR extends ControllerHead {
 			tmpx[i][0] = x[i];
 		}
 		for (int i = 0; i < u.length; i++) {
-			tmpu[i][0] = u[i];
+			tmpu[i][0] = Math.log(u[i]);
 		}
-		_A = A;
-		_B = B;
-		_C = C;
-		_D = D;
-		// _K = K;
-		_negativeK = mult(K, -1);
-		_x = tmpx;
-		_u = tmpu;
+		// _A = A;
+		// _B = B;
+		// _C = C;
+		// _D = D;
+		// _negativeK = mult(K, -1);
+		// _x = tmpx;
+		// _u = tmpu;
+
+		_A = new SimpleMatrix(A);
+		_B = new SimpleMatrix(B);
+		_C = new SimpleMatrix(C);
+		_D = new SimpleMatrix(D);
+		_K = new SimpleMatrix(K);
+		_x = new SimpleMatrix(tmpx);
+		_u = new SimpleMatrix(tmpu);
 		_uIDs = uIDs;
+		_A.print();
+		_B.print();
+		_C.print();
+		_D.print();
+		_x.print();
+		_u.print();
+		_K.print();
 	}
+
+	private double[] intercepts = { 3.379724, 4.107224 };
 
 	@Override
 	public boolean evaluate(ParameterInterface<?>[] parameters, double[] measurements, Double[] setpoints) {
@@ -98,32 +127,39 @@ public class ControllerLQR extends ControllerHead {
 			return false;
 		double[][] r = new double[setpoints.length][1];
 		for (int i = 0; i < setpoints.length; i++) {
+			if (setpoints[i] == null) {
+				setpoints[i] = 0d;
+			}
 			r[i][0] = setpoints[i];
 		}
-		_x = add(mult(_A, _x), mult(_B, _u));
-		_y = add(mult(_C, _x), mult(_D, _u));
-		_u = subtract(_u, mult(_negativeK, subtract(r, _x)));
-		for (int i = 0; i < _u.length; i++) {
+		_x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
+		_x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
+		SimpleMatrix _r = new SimpleMatrix(r);
+		// _x = add(mult(_A, _x), mult(_B, _u));
+		// _y = add(mult(_C, _x), mult(_D, _u));
+		// _u = subtract(_u, mult(_negativeK, subtract(r, _x)));
+		_x = (_A.mult(_x)).plus(_B.mult(_u));
+		_y = (_C.mult(_x)).plus(_D.mult(_u));
+		_u = _u.minus(_K.negative().mult(_r.minus(_x)));
+		for (int i = 0; i < _u.numRows(); i++) {
 			for (ParameterInterface<?> p : parameters) {
 				if (p.getID() == _uIDs[i]) {
-					p.set(_u[i][0]);
+					p.set(Math.exp(_u.get(i, 0)));
 				}
 			}
 		}
-		return false;
+		return true;
 	}
 
 	@Override
 	public double[] get() {
 		if (_y == null)
 			return null;
-		double[] values = new double[_y.length];
-		int i = 0;
-		for (double[] d : _y) {
-			values[i] = d[0];
-			i++;
+		double[] returnValue = new double[_y.numRows()];
+		for (int i = 0; i < _y.numRows(); i++) {
+			returnValue[i] = _y.get(i, 0);
 		}
-		return values;
+		return returnValue;
 	}
 
 	/**

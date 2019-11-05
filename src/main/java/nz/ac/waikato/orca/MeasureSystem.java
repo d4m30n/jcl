@@ -37,7 +37,13 @@ public class MeasureSystem implements MeasureInterface {
 		_percentageForCores = 100.0 * operatingSystemMXBean.getAvailableProcessors();
 	}
 
-	public MeasureSystem(long threadID) {
+	public MeasureSystem(Double cpuSetpoint, Double memorySetpoint) {
+		this();
+		_setpointCPU = cpuSetpoint;
+		_setpointMemory = memorySetpoint;
+	}
+
+	public MeasureSystem() {
 		_measureIntervalInMillis = TimeUnit.SECONDS.toMillis(1);
 		_percentageForCores = 100.0 * operatingSystemMXBean.getAvailableProcessors();
 	}
