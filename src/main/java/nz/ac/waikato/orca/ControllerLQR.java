@@ -45,8 +45,8 @@ public class ControllerLQR extends ControllerHead {
 	 * @throws Exception - If any of the matrix do not match or they are null then
 	 *                   an exception is thrown
 	 */
-	public ControllerLQR(double[][] A, double[][] B, double[][] C, double[][] D, double[][] Q, double[][] R, double[] x, double[] u,
-			int[] uIDs) throws Exception {
+	public ControllerLQR(double[][] A, double[][] B, double[][] C, double[][] D, double[][] Q, double[][] R, double[] x,
+			double[] u, int[] uIDs) throws Exception {
 		// Checks to see if any of the matrixes are null
 		if (A == null)
 			throw new Exception("A matrix is required");
@@ -73,10 +73,9 @@ public class ControllerLQR extends ControllerHead {
 			throw new Exception("A must be a square matrix");
 		else if (A[0].length != x.length)
 			throw new Exception("A must have the same number of rows as x");
-		else if (Q.length != A.length && Q[0].length != A[0].length){
+		else if (Q.length != A.length && Q[0].length != A[0].length) {
 			throw new Exception("Q must have the same number of rows and cols as A");
-		}
-		else if (B[0].length != u.length)
+		} else if (B[0].length != u.length)
 			throw new Exception("B must have the same number of rows as u");
 		else if (B.length != x.length)
 			throw new Exception("B must have the same number of cols as x");
@@ -91,7 +90,7 @@ public class ControllerLQR extends ControllerHead {
 			throw new Exception("D must have the same number of cols as x");
 		else if (u.length != uIDs.length)
 			throw new Exception("There must be the same cols in uIDs and u");
-		else if (R.length != u.length && R[0].length != u.length){
+		else if (R.length != u.length && R[0].length != u.length) {
 			throw new Exception("R must have the same number of rows as u and must be a square matrix");
 		}
 
@@ -105,11 +104,11 @@ public class ControllerLQR extends ControllerHead {
 			tmpu[i][0] = Math.log(u[i]);
 		}
 		double[][] K;
-		try(PythonInterpreter py = new PythonInterpreter()){
-			PyArray pA = new PyArray(PyArray,A.length);
-			PyArray pB = new PyArray(PyArray,B.length);
-			PyArray pQ = new PyArray(PyArray,Q.length);
-			PyArray pR = new PyArray(PyArray,R.length);
+		try (PythonInterpreter py = new PythonInterpreter()) {
+			PyArray pA = new PyArray(PyArray.class, A.length);
+			PyArray pB = new PyArray(PyArray.class, B.length);
+			PyArray pQ = new PyArray(PyArray.class, Q.length);
+			PyArray pR = new PyArray(PyArray.class, R.length);
 			py.exec("from control.matlab import *");
 			py.exec("import numpy as np");
 		}
@@ -151,8 +150,8 @@ public class ControllerLQR extends ControllerHead {
 			}
 			r[i][0] = setpoints[i];
 		}
-		//_x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
-		//_x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
+		// _x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
+		// _x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
 		SimpleMatrix _r = new SimpleMatrix(r);
 		// _x = add(mult(_A, _x), mult(_B, _u));
 		// _y = add(mult(_C, _x), mult(_D, _u));
