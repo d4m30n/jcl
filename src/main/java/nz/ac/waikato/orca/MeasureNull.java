@@ -21,6 +21,7 @@ public class MeasureNull implements MeasureInterface {
 
 	@Override
 	public void print(long currentRuntime, ParameterInterface<?>[] parameters) {
+		System.out.printf("Null Measure");
 		return;
 	}
 

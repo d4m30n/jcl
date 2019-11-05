@@ -1,6 +1,8 @@
 package nz.ac.waikato.orca;
 
 import org.ejml.simple.SimpleMatrix;
+import org.python.util.PythonInterpreter;
+import org.python.core.PyArray;
 
 public class ControllerLQR extends ControllerHead {
 
@@ -43,7 +45,7 @@ public class ControllerLQR extends ControllerHead {
 	 * @throws Exception - If any of the matrix do not match or they are null then
 	 *                   an exception is thrown
 	 */
-	public ControllerLQR(double[][] A, double[][] B, double[][] C, double[][] D, double[][] K, double[] x, double[] u,
+	public ControllerLQR(double[][] A, double[][] B, double[][] C, double[][] D, double[][] Q, double[][] R, double[] x, double[] u,
 			int[] uIDs) throws Exception {
 		// Checks to see if any of the matrixes are null
 		if (A == null)
@@ -54,8 +56,10 @@ public class ControllerLQR extends ControllerHead {
 			throw new Exception("C matrix is required");
 		else if (D == null)
 			throw new Exception("D matrix is required");
-		else if (K == null)
-			throw new Exception("K matrix is required");
+		else if (Q == null)
+			throw new Exception("Q matrix is required");
+		else if (R == null)
+			throw new Exception("R matrix is required");
 		else if (x == null)
 			throw new Exception("x matrix is required");
 		else if (u == null)
@@ -69,6 +73,9 @@ public class ControllerLQR extends ControllerHead {
 			throw new Exception("A must be a square matrix");
 		else if (A[0].length != x.length)
 			throw new Exception("A must have the same number of rows as x");
+		else if (Q.length != A.length && Q[0].length != A[0].length){
+			throw new Exception("Q must have the same number of rows and cols as A");
+		}
 		else if (B[0].length != u.length)
 			throw new Exception("B must have the same number of rows as u");
 		else if (B.length != x.length)
@@ -84,6 +91,9 @@ public class ControllerLQR extends ControllerHead {
 			throw new Exception("D must have the same number of cols as x");
 		else if (u.length != uIDs.length)
 			throw new Exception("There must be the same cols in uIDs and u");
+		else if (R.length != u.length && R[0].length != u.length){
+			throw new Exception("R must have the same number of rows as u and must be a square matrix");
+		}
 
 		// Creates the x and u matrix
 		double[][] tmpx = new double[x.length][1];
@@ -93,6 +103,15 @@ public class ControllerLQR extends ControllerHead {
 		}
 		for (int i = 0; i < u.length; i++) {
 			tmpu[i][0] = Math.log(u[i]);
+		}
+		double[][] K;
+		try(PythonInterpreter py = new PythonInterpreter()){
+			PyArray pA = new PyArray(PyArray,A.length);
+			PyArray pB = new PyArray(PyArray,B.length);
+			PyArray pQ = new PyArray(PyArray,Q.length);
+			PyArray pR = new PyArray(PyArray,R.length);
+			py.exec("from control.matlab import *");
+			py.exec("import numpy as np");
 		}
 		// _A = A;
 		// _B = B;
@@ -132,8 +151,8 @@ public class ControllerLQR extends ControllerHead {
 			}
 			r[i][0] = setpoints[i];
 		}
-		_x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
-		_x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
+		//_x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
+		//_x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
 		SimpleMatrix _r = new SimpleMatrix(r);
 		// _x = add(mult(_A, _x), mult(_B, _u));
 		// _y = add(mult(_C, _x), mult(_D, _u));
