@@ -3,8 +3,8 @@ package nz.ac.waikato.orca;
 public abstract class Parameter<T> implements ParameterInterface<T> {
 	private static int nextID = 0;
 
-	private double _maxValue = Double.MAX_VALUE;
-	private double _minValue = Double.MIN_VALUE;
+	protected double _maxValue = Double.MAX_VALUE;
+	protected double _minValue = Double.MIN_VALUE;
 	public final String NAME;
 	public final int ID;
 

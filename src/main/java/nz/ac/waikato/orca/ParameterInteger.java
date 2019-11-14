@@ -9,8 +9,7 @@ public class ParameterInteger extends Parameter<Integer> {
 	private boolean _allowWeightUpdate;
 
 	public ParameterInteger(int initalParameter, Integer maxValue, Integer minValue, String name) {
-		super((maxValue != null) ? maxValue.doubleValue() : null, (minValue != null) ? minValue.doubleValue() : null,
-				name);
+		super((maxValue != null) ? maxValue.doubleValue() : null, (minValue != null) ? minValue.doubleValue() : null, name);
 		_parameter = initalParameter;
 		_weight = 1;
 		_allowWeightUpdate = true;
@@ -35,11 +34,11 @@ public class ParameterInteger extends Parameter<Integer> {
 
 	@Override
 	public boolean set(Double newParameter) {
-		if (newParameter > Integer.MAX_VALUE) {
-			_parameter = Integer.MAX_VALUE;
+		if (newParameter > _maxValue) {
+			_parameter = (int) _maxValue;
 			return false;
-		} else if (newParameter < Integer.MIN_VALUE) {
-			_parameter = Integer.MIN_VALUE;
+		} else if (newParameter < _minValue) {
+			_parameter = (int) _minValue;
 			return false;
 		}
 		_parameter = (int) Math.round(newParameter);
