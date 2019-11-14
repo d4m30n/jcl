@@ -1,8 +1,13 @@
 package nz.ac.waikato.orca;
 
 import org.ejml.simple.SimpleMatrix;
-import org.python.util.PythonInterpreter;
-import org.python.core.PyArray;
+import java.net.Socket;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.nio.ByteBuffer;
+import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.parser.JSONParser;
 
 public class ControllerLQR extends ControllerHead {
 
@@ -103,28 +108,11 @@ public class ControllerLQR extends ControllerHead {
 		for (int i = 0; i < u.length; i++) {
 			tmpu[i][0] = Math.log(u[i]);
 		}
-		double[][] K;
-		try (PythonInterpreter py = new PythonInterpreter()) {
-			PyArray pA = new PyArray(PyArray.class, A.length);
-			PyArray pB = new PyArray(PyArray.class, B.length);
-			PyArray pQ = new PyArray(PyArray.class, Q.length);
-			PyArray pR = new PyArray(PyArray.class, R.length);
-			py.exec("from control.matlab import *");
-			py.exec("import numpy as np");
-		}
-		// _A = A;
-		// _B = B;
-		// _C = C;
-		// _D = D;
-		// _negativeK = mult(K, -1);
-		// _x = tmpx;
-		// _u = tmpu;
-
 		_A = new SimpleMatrix(A);
 		_B = new SimpleMatrix(B);
 		_C = new SimpleMatrix(C);
 		_D = new SimpleMatrix(D);
-		_K = new SimpleMatrix(K);
+		_K = evaluateK(A, B, Q, R);
 		_x = new SimpleMatrix(tmpx);
 		_u = new SimpleMatrix(tmpu);
 		_uIDs = uIDs;
@@ -137,19 +125,104 @@ public class ControllerLQR extends ControllerHead {
 		_K.print();
 	}
 
-	private double[] intercepts = { 3.379724, 4.107224 };
+	private SimpleMatrix evaluateK(double[][] A, double[][] B, double[][] Q, double[][] R) {
+		try {
+			int port = 8845;
+			JSONObject obj = new JSONObject();
+			JSONArray Aarray = new JSONArray();
+			JSONArray Barray = new JSONArray();
+			JSONArray Qarray = new JSONArray();
+			JSONArray Rarray = new JSONArray();
+			JSONArray tmp = new JSONArray();
+			for (int r = 0; r < A.length; r++) {
+				JSONArray listtmp = new JSONArray();
+				for (int c = 0; c < A[0].length; c++) {
+					listtmp.add(A[r][c]);
+				}
+				tmp.add(listtmp);
+
+			}
+			Aarray.add(tmp);
+			tmp = new JSONArray();
+			for (int r = 0; r < B.length; r++) {
+				JSONArray listtmp = new JSONArray();
+				for (int c = 0; c < B[0].length; c++) {
+					listtmp.add(B[r][c]);
+				}
+				tmp.add(listtmp);
+			}
+			Barray.add(tmp);
+			tmp = new JSONArray();
+			for (int r = 0; r < Q.length; r++) {
+				JSONArray listtmp = new JSONArray();
+				for (int c = 0; c < Q[0].length; c++) {
+					listtmp.add(Q[r][c]);
+				}
+				tmp.add(listtmp);
+			}
+			Qarray.add(tmp);
+			tmp = new JSONArray();
+			for (int r = 0; r < R.length; r++) {
+				JSONArray listtmp = new JSONArray();
+				for (int c = 0; c < R[0].length; c++) {
+					listtmp.add(R[r][c]);
+				}
+				tmp.add(listtmp);
+
+			}
+			Rarray.add(tmp);
+			obj.put("A", Aarray);
+			obj.put("B", Barray);
+			obj.put("Q", Qarray);
+			obj.put("R", Rarray);
+			Socket send = new Socket("127.0.0.1", port);
+			BufferedOutputStream dout = new BufferedOutputStream(send.getOutputStream());
+			byte[] outdata = obj.toString().getBytes();
+			byte[] datasize = new byte[4];
+			datasize = ByteBuffer.allocate(4).putInt(outdata.length).array();
+			dout.write(datasize);
+			dout.flush();
+			dout.write(outdata);
+			dout.flush();
+			DataInputStream din = new DataInputStream(send.getInputStream());
+			byte[] indatasize = new byte[4];
+			din.read(indatasize);
+			int recevesize = ByteBuffer.wrap(indatasize).getInt();
+			byte[] recevedata = new byte[recevesize];
+			din.read(recevedata);
+			send.close();
+			String jsonK = new String(recevedata);
+			JSONParser parser = new JSONParser();
+			JSONObject json = (JSONObject) parser.parse(jsonK);
+			JSONArray Karray = (JSONArray) json.get("K");
+			JSONArray KarrayInner = (JSONArray) Karray.get(0);
+			double[][] K = new double[Karray.size()][KarrayInner.size()];
+			for (int r = 0; r < K.length; r++) {
+				JSONArray innerK = (JSONArray) Karray.get(r);
+				for (int c = 0; c < K[0].length; c++) {
+					K[r][c] = (double) innerK.get(c);
+				}
+			}
+			SimpleMatrix rK = new SimpleMatrix(K);
+
+			// JSONParser parse = new JSONParser(returnK);
+			// JSONArray array = (JSONArray)parse.parse(returnK);
+
+			return rK;
+		} catch (Exception e) {
+			System.out.println(e.toString());
+			System.exit(-1);
+			return null;
+		}
+	}
 
 	@Override
 	public boolean evaluate(ParameterInterface<?>[] parameters, double[] measurements, Double[] setpoints) {
 		if (areAllSetpointsNull(setpoints))
 			return false;
-		double[][] r = new double[setpoints.length][1];
-		for (int i = 0; i < setpoints.length; i++) {
-			if (setpoints[i] == null) {
-				setpoints[i] = 0d;
-			}
-			r[i][0] = setpoints[i];
-		}
+		double[][] r = new double[2][1];
+		r[0][0] = setpoints[0];
+		r[1][0] = setpoints[1];
 		// _x.set(0, 0, Math.log(measurements[0]) - intercepts[0]);
 		// _x.set(1, 0, Math.log(measurements[1]) - intercepts[1]);
 		SimpleMatrix _r = new SimpleMatrix(r);
@@ -162,7 +235,7 @@ public class ControllerLQR extends ControllerHead {
 		for (int i = 0; i < _u.numRows(); i++) {
 			for (ParameterInterface<?> p : parameters) {
 				if (p.getID() == _uIDs[i]) {
-					p.set(Math.exp(_u.get(i, 0)));
+					p.set(ModelLQR.decodeParameter(_u.get(i, 0)));
 				}
 			}
 		}
@@ -178,99 +251,6 @@ public class ControllerLQR extends ControllerHead {
 			returnValue[i] = _y.get(i, 0);
 		}
 		return returnValue;
-	}
-
-	/**
-	 * Adds two matrices together
-	 * http://www.javawithus.com/programs/matrix-addition-and-subtraction
-	 * 
-	 * @param a - The first matrix to add
-	 * @param b - The second matrix to add
-	 * @return - Returns the new matrix or null if null was passed in as either
-	 *         parameter
-	 */
-	private double[][] add(double[][] a, double[][] b) {
-		if (a == null || b == null)
-			return null;
-		int rows = a.length;
-		int columns = a[0].length;
-		double[][] result = new double[rows][columns];
-		for (int i = 0; i < rows; i++) {
-			for (int j = 0; j < columns; j++) {
-				result[i][j] = a[i][j] + b[i][j];
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Subtract two matrices together
-	 * http://www.javawithus.com/programs/matrix-addition-and-subtraction
-	 * 
-	 * @param a - The first matrix to subtract
-	 * @param b - The second matrix to subtract
-	 * @return - The new matrix or null if either of the parameters are passed as
-	 *         null
-	 */
-	private double[][] subtract(double[][] a, double[][] b) {
-		if (a == null || b == null)
-			return null;
-		int rows = a.length;
-		int columns = a[0].length;
-		double[][] result = new double[rows][columns];
-		for (int i = 0; i < rows; i++) {
-			for (int j = 0; j < columns; j++) {
-				result[i][j] = a[i][j] - b[i][j];
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Multiply two matrices together
-	 * http://www.javawithus.com/programs/matrix-multiplication
-	 * 
-	 * @param a - The first matrix to multiply
-	 * @param b - The second matrix to multiply
-	 * @return - The multiplication of both matrices or null if a null parameter is
-	 *         passed
-	 */
-	private double[][] mult(double[][] a, double[][] b) {
-		if (a == null || b == null)
-			return null;
-		if (a[0].length != b.length)
-			return null;
-		int rowsInA = a.length;
-		int columnsInA = a[0].length; // same as rows in B
-		int columnsInB = b[0].length;
-		double[][] c = new double[rowsInA][columnsInB];
-		for (int i = 0; i < rowsInA; i++) {
-			for (int j = 0; j < columnsInB; j++) {
-				for (int k = 0; k < columnsInA; k++) {
-					c[i][j] = c[i][j] + a[i][k] * b[k][j];
-				}
-			}
-		}
-		return c;
-	}
-
-	/**
-	 * The multiplication of a matrix with a single value
-	 * 
-	 * @param a - The first matrix to multiply
-	 * @param b - The double to multiply the matrix with
-	 * @return - The return matrix once multiplyed or null if a null value is passed
-	 */
-	private double[][] mult(double[][] a, double b) {
-		if (a == null)
-			return null;
-		double[][] c = new double[a.length][a[0].length];
-		for (int i = 0; i < a.length; i++) {
-			for (int j = 0; j < a[0].length; j++) {
-				c[i][j] = a[i][j] * b;
-			}
-		}
-		return c;
 	}
 
 }
