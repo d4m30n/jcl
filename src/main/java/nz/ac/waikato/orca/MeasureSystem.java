@@ -67,6 +67,12 @@ public class MeasureSystem implements MeasureInterface {
 					System.out.printf("%s", p.getName());
 				}
 			}
+			if (_setpointCPU != null) {
+				System.out.printf(",set CPU");
+			}
+			if (_setpointMemory != null) {
+				System.out.printf(",set Memory");
+			}
 			System.out.printf(",time%n");
 		}
 		long currentRuntimeInSec = TimeUnit.MILLISECONDS.toSeconds(currentRuntimeInMillis);
@@ -76,6 +82,12 @@ public class MeasureSystem implements MeasureInterface {
 				System.out.printf(",");
 				p.printValue();
 			}
+		}
+		if (_setpointCPU != null) {
+			System.out.printf(",%.2f", _setpointCPU);
+		}
+		if (_setpointMemory != null) {
+			System.out.printf(",%.2f", _setpointMemory);
 		}
 		System.out.printf(",%d%n", currentRuntimeInSec);
 	}
@@ -120,9 +132,36 @@ public class MeasureSystem implements MeasureInterface {
 		return returnValues;
 	}
 
+	double[] reduce = new double[2];
+	double[] perror = new double[2];
+	double[] integral = new double[2];
+	double[][] kvalue = { { 0.05, 0.05, 0 }, { 0.009, 0.009, 0 } };
+
+	private double PIDSetpoint(double setpoint, double current, int place) {
+		double error = setpoint - current;
+		integral[place] = integral[place] + error * 1;
+		double der = (error - perror[place]) / 1;
+		double output = (kvalue[place][0] * error) + (kvalue[place][1] * integral[place]) + (kvalue[place][2] * der);
+		reduce[place] += output;
+		perror[place] = error;
+		return output;
+	}
+
 	@Override
 	public Double[] getSetpoints() {
-		Double[] returnValues = { _setpointCPU, _setpointMemory };
+		if (_setpointCPU == null)
+			_setpointCPU = 1d;
+		if (_setpointMemory == null)
+			_setpointMemory = 1d;
+		double rcpu = _setpointCPU + PIDSetpoint(_setpointCPU, _currentCPU, 0);
+		double rmemory = _setpointMemory + PIDSetpoint(_setpointMemory, _currentMemory, 1);
+		if (rcpu < 1)
+			rcpu = 1;
+		if (rmemory < 1)
+			rmemory = 1;
+		rcpu = ModelLQR.encodeMeasurement(rcpu, ModelLQR.CPU);
+		rmemory = ModelLQR.encodeMeasurement(rmemory, ModelLQR.MEMORY);
+		Double[] returnValues = { rcpu, rmemory };
 		return returnValues;
 	}
 
