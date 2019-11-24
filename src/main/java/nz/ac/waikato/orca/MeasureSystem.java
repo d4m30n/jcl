@@ -132,29 +132,37 @@ public class MeasureSystem implements MeasureInterface {
 		return returnValues;
 	}
 
-	double[] reduce = new double[2];
 	double[] perror = new double[2];
 	double[] integral = new double[2];
-	double[][] kvalue = { { 0.05, 0.05, 0 }, { 0.009, 0.009, 0 } };
+	private static int INTEGRAL_SIZE = 5;
+	private int[] integralPlace = new int[2];
+	double[][] kvalue = { { 1, 0.5, 0.05 }, { 1, 0.5, 0.05 } };
 
-	private double PIDSetpoint(double setpoint, double current, int place) {
+	private double PIDSetpoint(double setpoint, double current, int place, double dt) {
+		if (integralPlace[place] >= INTEGRAL_SIZE) {
+			integralPlace[place] = 0;
+			integral[place] = 0;
+		}
+		integralPlace[place]++;
 		double error = setpoint - current;
-		integral[place] = integral[place] + error * 1;
-		double der = (error - perror[place]) / 1;
+		integral[place] = integral[place] + error * dt;
+		double der = (error - perror[place]) / dt;
 		double output = (kvalue[place][0] * error) + (kvalue[place][1] * integral[place]) + (kvalue[place][2] * der);
-		reduce[place] += output;
 		perror[place] = error;
 		return output;
 	}
 
 	@Override
-	public Double[] getSetpoints() {
-		if (_setpointCPU == null)
+	public Double[] getSetpoints(int numberOfControlUpdates) {
+		if (_setpointCPU == null) {
 			_setpointCPU = 1d;
-		if (_setpointMemory == null)
+		}
+		if (_setpointMemory == null) {
 			_setpointMemory = 1d;
-		double rcpu = _setpointCPU + PIDSetpoint(_setpointCPU, _currentCPU, 0);
-		double rmemory = _setpointMemory + PIDSetpoint(_setpointMemory, _currentMemory, 1);
+		}
+		double dt = TimeUnit.MILLISECONDS.toSeconds(getMeasureIntervalInMillis()) / numberOfControlUpdates;
+		double rcpu = _setpointCPU + PIDSetpoint(_setpointCPU, _currentCPU, 0, dt);
+		double rmemory = _setpointMemory + PIDSetpoint(_setpointMemory, _currentMemory, 1, dt);
 		if (rcpu < 1)
 			rcpu = 1;
 		if (rmemory < 1)
