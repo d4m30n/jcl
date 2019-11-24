@@ -2,7 +2,7 @@ package nz.ac.waikato.orca;
 
 public class ModelLQR {
 
-  private static double[] intercept = { 3.379724, 4.107224 };
+  private static double[] intercept = { 0.39887, 4.2307403 };
   public static final int CPU = 0;
   public static final int MEMORY = 1;
 
