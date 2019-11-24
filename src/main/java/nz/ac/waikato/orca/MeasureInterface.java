@@ -32,5 +32,5 @@ interface MeasureInterface {
 	 * 
 	 * @return
 	 */
-	public Double[] getSetpoints();
+	public Double[] getSetpoints(int numberOfControlUpdates);
 }
