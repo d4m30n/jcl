@@ -41,7 +41,7 @@ public class MeasureNull implements MeasureInterface {
 	}
 
 	@Override
-	public Double[] getSetpoints() {
+	public Double[] getSetpoints(int numberOfControlUpdates) {
 		return null;
 	}
 
