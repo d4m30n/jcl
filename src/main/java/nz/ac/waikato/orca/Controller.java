@@ -29,6 +29,8 @@ public class Controller {
 	// Holds the thread for the timer
 	private Thread _sleepTimer;
 
+	private int numberOfControlUpdates = 1;
+
 	/**
 	 * 
 	 * @param controllerInterface - The controller that will be used to control the
@@ -99,6 +101,16 @@ public class Controller {
 		return _isRunning;
 	}
 
+	public int getNumberOfControlUpdates() {
+		return numberOfControlUpdates;
+	}
+
+	public void setNumberOfControlUpdates(int newControlUpdates) {
+		if (!_isRunning && newControlUpdates > 0) {
+			numberOfControlUpdates = newControlUpdates;
+		}
+	}
+
 	/**
 	 * Creates a thread and starts the controller
 	 * 
@@ -166,8 +178,11 @@ public class Controller {
 		while (_isRunning) {
 			startTime = System.currentTimeMillis();
 			_MeasureInterface.measure();
-			_ControllerInterface.evaluate(_parameters, _MeasureInterface.getMeasurements(),
-					_MeasureInterface.getSetpoints());
+			Double[] setpoints = _MeasureInterface.getSetpoints(numberOfControlUpdates);
+			double[] measurements = _MeasureInterface.getMeasurements();
+			for (int i = 0; i < numberOfControlUpdates; i++) {
+				_ControllerInterface.evaluate(_parameters, measurements, setpoints);
+			}
 			if (_printOutput) {
 				if (_skipPrintOutput <= 0) {
 					long currentRuntime = System.currentTimeMillis() - _systemStartTime;
@@ -176,8 +191,10 @@ public class Controller {
 					_skipPrintOutput--;
 				}
 			}
+			System.gc();
 			stopTime = System.currentTimeMillis();
-			long pauseTime = _MeasureInterface.getMeasureIntervalInMillis() - (stopTime - startTime);
+			long runtime = (stopTime - startTime);
+			long pauseTime = _MeasureInterface.getMeasureIntervalInMillis() - runtime;
 			if (pauseTime > 0) {
 				try {
 					TimeUnit.MILLISECONDS.sleep(pauseTime);
@@ -185,8 +202,13 @@ public class Controller {
 					e.printStackTrace();
 					System.out.println("ERROR:" + e);
 				}
+			} else if (pauseTime < 0) {
+				if (numberOfControlUpdates > 1) {
+					numberOfControlUpdates--;
+				}
 			}
 		}
+		System.exit(0);
 	}
 
 	/**
