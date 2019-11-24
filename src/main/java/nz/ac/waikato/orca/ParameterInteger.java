@@ -29,6 +29,9 @@ public class ParameterInteger extends Parameter<Integer> {
 
 	@Override
 	public Integer get() {
+		if (_parameter < _minValue) {
+			_parameter = (int) _minValue;
+		}
 		return _parameter;
 	}
 
