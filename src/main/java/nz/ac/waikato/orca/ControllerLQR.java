@@ -116,13 +116,6 @@ public class ControllerLQR extends ControllerHead {
 		_x = new SimpleMatrix(tmpx);
 		_u = new SimpleMatrix(tmpu);
 		_uIDs = uIDs;
-		_A.print();
-		_B.print();
-		_C.print();
-		_D.print();
-		_x.print();
-		_u.print();
-		_K.print();
 	}
 
 	private SimpleMatrix evaluateK(double[][] A, double[][] B, double[][] Q, double[][] R) {
