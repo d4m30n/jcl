@@ -178,14 +178,15 @@ public class Controller {
 		while (_isRunning) {
 			startTime = System.currentTimeMillis();
 			_MeasureInterface.measure();
-			Double[] setpoints = _MeasureInterface.getSetpoints(numberOfControlUpdates);
+			long currentRuntime = System.currentTimeMillis() - _systemStartTime;
+			Double[] setpoints = _MeasureInterface.getSetpoints(numberOfControlUpdates,
+					TimeUnit.MILLISECONDS.toSeconds(currentRuntime));
 			double[] measurements = _MeasureInterface.getMeasurements();
 			for (int i = 0; i < numberOfControlUpdates; i++) {
 				_ControllerInterface.evaluate(_parameters, measurements, setpoints);
 			}
 			if (_printOutput) {
 				if (_skipPrintOutput <= 0) {
-					long currentRuntime = System.currentTimeMillis() - _systemStartTime;
 					_MeasureInterface.print(currentRuntime, _parameters);
 				} else {
 					_skipPrintOutput--;

@@ -16,6 +16,8 @@ public class MeasureSystem implements MeasureInterface {
 	private double _currentMemory = 0;// Holds the last current Memory measured by the system
 	private Double _setpointCPU = null;// Holds the desired cpu setpoint
 	private Double _setpointMemory = null;// Holds the desired memory setpoint
+	private double _cpuChange;
+	private double _memoryChange;
 	private long _measureIntervalInMillis;// Holds the interval to measure the system at in milliseconds
 	private final double _percentageForCores;
 
@@ -69,9 +71,11 @@ public class MeasureSystem implements MeasureInterface {
 			}
 			if (_setpointCPU != null) {
 				System.out.printf(",set CPU");
+				System.out.printf(",Change CPU");
 			}
 			if (_setpointMemory != null) {
 				System.out.printf(",set Memory");
+				System.out.printf(", Change Memory");
 			}
 			System.out.printf(",time%n");
 		}
@@ -85,9 +89,11 @@ public class MeasureSystem implements MeasureInterface {
 		}
 		if (_setpointCPU != null) {
 			System.out.printf(",%.2f", _setpointCPU);
+			System.out.printf(",%.2f", _cpuChange);
 		}
 		if (_setpointMemory != null) {
 			System.out.printf(",%.2f", _setpointMemory);
+			System.out.printf(",%.2f", _memoryChange);
 		}
 		System.out.printf(",%d%n", currentRuntimeInSec);
 	}
@@ -136,39 +142,48 @@ public class MeasureSystem implements MeasureInterface {
 	double[] integral = new double[2];
 	private static int INTEGRAL_SIZE = 5;
 	private int[] integralPlace = new int[2];
-	double[][] kvalue = { { 1, 0.5, 0.05 }, { 1, 0.5, 0.05 } };
+	double[][] kvalue = { { 5, 2, 2 }, { 5, 2, 2 } };
 
-	private double PIDSetpoint(double setpoint, double current, int place, double dt) {
-		if (integralPlace[place] >= INTEGRAL_SIZE) {
-			integralPlace[place] = 0;
-			integral[place] = 0;
-		}
-		integralPlace[place]++;
+	private double PIDSetpoint(double setpoint, double current, int place, double dt, long timeInSeconds) {
+		double kp = kvalue[place][0] * Math.pow((1 - 0.10), timeInSeconds);
+		double ki = kvalue[place][1] * Math.pow((1 - 0.20), timeInSeconds);
+		double kd = kvalue[place][2] * Math.pow((1 - 0.15), timeInSeconds);
 		double error = setpoint - current;
 		integral[place] = integral[place] + error * dt;
 		double der = (error - perror[place]) / dt;
-		double output = (kvalue[place][0] * error) + (kvalue[place][1] * integral[place]) + (kvalue[place][2] * der);
+		double output = (kp * error) + (ki * integral[place]) + (kd * der);
 		perror[place] = error;
 		return output;
 	}
 
+	private int NextPIDRun = 0;
+	private int keepTime = 0;
+
 	@Override
-	public Double[] getSetpoints(int numberOfControlUpdates) {
+	public Double[] getSetpoints(int numberOfControlUpdates, long timeInSeconds) {
 		if (_setpointCPU == null) {
 			_setpointCPU = 1d;
 		}
 		if (_setpointMemory == null) {
 			_setpointMemory = 1d;
 		}
-		double dt = TimeUnit.MILLISECONDS.toSeconds(getMeasureIntervalInMillis()) / numberOfControlUpdates;
-		double rcpu = _setpointCPU + PIDSetpoint(_setpointCPU, _currentCPU, 0, dt);
-		double rmemory = _setpointMemory + PIDSetpoint(_setpointMemory, _currentMemory, 1, dt);
-		if (rcpu < 1)
-			rcpu = 1;
-		if (rmemory < 1)
-			rmemory = 1;
-		rcpu = ModelLQR.encodeMeasurement(rcpu, ModelLQR.CPU);
-		rmemory = ModelLQR.encodeMeasurement(rmemory, ModelLQR.MEMORY);
+		if (NextPIDRun == 0 && false) {
+			double dt = TimeUnit.MILLISECONDS.toSeconds(getMeasureIntervalInMillis()) / numberOfControlUpdates;
+			_cpuChange = _cpuChange;// + PIDSetpoint(_setpointCPU, _currentCPU, 0, dt, timeInSeconds);
+			_memoryChange = _memoryChange;// + PIDSetpoint(_setpointMemory, _currentMemory, 1, dt, timeInSeconds);
+			NextPIDRun = 5;
+			keepTime += 5;
+		} else {
+			_cpuChange = _setpointCPU;
+			_memoryChange = _setpointMemory;
+		}
+		NextPIDRun--;
+		if (_cpuChange < 1)
+			_cpuChange = 1;
+		if (_memoryChange < 1)
+			_memoryChange = 1;
+		double rcpu = ModelLQR.encodeMeasurement(_cpuChange, ModelLQR.CPU);
+		double rmemory = ModelLQR.encodeMeasurement(_memoryChange, ModelLQR.MEMORY);
 		Double[] returnValues = { rcpu, rmemory };
 		return returnValues;
 	}
