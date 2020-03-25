@@ -35,6 +35,10 @@ public class MeasureNull implements MeasureInterface {
 		return _measureIntervalInMillis;
 	}
 
+	public long getMeasureIntervalInSec() {
+		return TimeUnit.MILLISECONDS.toSeconds(_measureIntervalInMillis);
+	}
+
 	@Override
 	public double[] getMeasurements() {
 		return null;
@@ -42,6 +46,10 @@ public class MeasureNull implements MeasureInterface {
 
 	@Override
 	public Double[] getSetpoints(int numberOfControlUpdates, long timeInSeconds) {
+		return null;
+	}
+
+	public Double[] getRawSetpoints() {
 		return null;
 	}
 

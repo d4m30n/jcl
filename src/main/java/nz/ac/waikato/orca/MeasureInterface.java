@@ -22,6 +22,8 @@ interface MeasureInterface {
 	 */
 	public long getMeasureIntervalInMillis();
 
+	public long getMeasureIntervalInSec();
+
 	/**
 	 * 
 	 * @return
@@ -33,4 +35,6 @@ interface MeasureInterface {
 	 * @return
 	 */
 	public Double[] getSetpoints(int numberOfControlUpdates, long timeInSeconds);
+
+	public Double[] getRawSetpoints();
 }

@@ -42,7 +42,17 @@ public class MeasureSystem implements MeasureInterface {
 	public MeasureSystem(Double cpuSetpoint, Double memorySetpoint) {
 		this();
 		_setpointCPU = cpuSetpoint;
+		if (_setpointCPU == null) {
+			_cpuChange = 1d;
+		} else {
+			_cpuChange = cpuSetpoint;
+		}
 		_setpointMemory = memorySetpoint;
+		if (_setpointMemory == null) {
+			_memoryChange = 1d;
+		} else {
+			_memoryChange = memorySetpoint;
+		}
 	}
 
 	public MeasureSystem() {
@@ -109,6 +119,11 @@ public class MeasureSystem implements MeasureInterface {
 		return _measureIntervalInMillis;
 	}
 
+	@Override
+	public long getMeasureIntervalInSec() {
+		return TimeUnit.MILLISECONDS.toSeconds(_measureIntervalInMillis);
+	}
+
 	/**
 	 * Measures the amount of CPU used by the JVM
 	 * 
@@ -140,14 +155,12 @@ public class MeasureSystem implements MeasureInterface {
 
 	double[] perror = new double[2];
 	double[] integral = new double[2];
-	private static int INTEGRAL_SIZE = 5;
-	private int[] integralPlace = new int[2];
-	double[][] kvalue = { { 5, 2, 2 }, { 5, 2, 2 } };
+	double[][] kvalue = { { 0.007, 0.007, 0.007 }, { 0.005, 0.005, 0.005 } };
 
 	private double PIDSetpoint(double setpoint, double current, int place, double dt, long timeInSeconds) {
-		double kp = kvalue[place][0] * Math.pow((1 - 0.10), timeInSeconds);
-		double ki = kvalue[place][1] * Math.pow((1 - 0.20), timeInSeconds);
-		double kd = kvalue[place][2] * Math.pow((1 - 0.15), timeInSeconds);
+		double kp = kvalue[place][0];// * Math.pow((1 - 0.10), timeInSeconds);
+		double ki = kvalue[place][1];// * Math.pow((1 - 0.20), timeInSeconds);
+		double kd = kvalue[place][2];// * Math.pow((1 - 0.15), timeInSeconds);
 		double error = setpoint - current;
 		integral[place] = integral[place] + error * dt;
 		double der = (error - perror[place]) / dt;
@@ -156,8 +169,16 @@ public class MeasureSystem implements MeasureInterface {
 		return output;
 	}
 
-	private int NextPIDRun = 0;
-	private int keepTime = 0;
+	private boolean RunPID = true;
+	private boolean UsePID = true;
+
+	double[] advradge = { 0, 0 };
+	double[] numValues = { 0, 0 };
+
+	public Double[] getRawSetpoints() {
+		Double[] returnValues = { _setpointCPU, _setpointMemory };
+		return returnValues;
+	}
 
 	@Override
 	public Double[] getSetpoints(int numberOfControlUpdates, long timeInSeconds) {
@@ -167,17 +188,33 @@ public class MeasureSystem implements MeasureInterface {
 		if (_setpointMemory == null) {
 			_setpointMemory = 1d;
 		}
-		if (NextPIDRun == 0 && false) {
-			double dt = TimeUnit.MILLISECONDS.toSeconds(getMeasureIntervalInMillis()) / numberOfControlUpdates;
-			_cpuChange = _cpuChange;// + PIDSetpoint(_setpointCPU, _currentCPU, 0, dt, timeInSeconds);
-			_memoryChange = _memoryChange;// + PIDSetpoint(_setpointMemory, _currentMemory, 1, dt, timeInSeconds);
-			NextPIDRun = 5;
-			keepTime += 5;
-		} else {
-			_cpuChange = _setpointCPU;
-			_memoryChange = _setpointMemory;
+		if (UsePID == true) {
+			if (numValues[0] >= 5) {
+				advradge[0] = 0;
+				advradge[1] = 0;
+				numValues[0] = 0;
+				numValues[1] = 0;
+			}
+			advradge[0] += _currentCPU;
+			advradge[1] += _currentMemory;
+			numValues[0]++;
+			numValues[1]++;
+			double ACPU = advradge[0] / numValues[0];
+			double AMEM = advradge[1] / numValues[1];
+			// System.out.println("ACPU:" + ACPU + "\tAMEM:" + AMEM);
+			if (ACPU >= _setpointCPU || AMEM >= _setpointMemory) {
+				RunPID = false;
+				_cpuChange -= 1;
+				_memoryChange -= 1;
+			} else {
+				RunPID = true;
+			}
+			if (RunPID) {
+				double dt = TimeUnit.MILLISECONDS.toSeconds(getMeasureIntervalInMillis()) / numberOfControlUpdates;
+				_cpuChange = _cpuChange + PIDSetpoint(_setpointCPU, _currentCPU, 0, dt, timeInSeconds);
+				_memoryChange = _memoryChange + PIDSetpoint(_setpointMemory, _currentMemory, 1, dt, timeInSeconds);
+			}
 		}
-		NextPIDRun--;
 		if (_cpuChange < 1)
 			_cpuChange = 1;
 		if (_memoryChange < 1)

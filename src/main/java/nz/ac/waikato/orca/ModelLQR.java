@@ -9,7 +9,11 @@ public class ModelLQR {
   private ModelLQR() {
   };
 
-  public static double encodeMeasurement(double measurement, Integer type) {
+  public static void UpdateIntercept(double NewIntercept, int type) {
+    intercept[type] = NewIntercept;
+  }
+
+  public static double encodeMeasurement(double measurement, int type) {
     return Math.log(measurement) - intercept[type];
   }
 
@@ -17,7 +21,7 @@ public class ModelLQR {
     return Math.log(parameter);
   }
 
-  public static double decodeMeasurement(double measurement, Integer type) {
+  public static double decodeMeasurement(double measurement, int type) {
     return Math.exp(measurement + intercept[type]);
   }
 

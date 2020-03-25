@@ -23,7 +23,7 @@ public interface ControllerInterface {
 	 * @param setpoints
 	 * @return - True if the controller could be evaluated
 	 */
-	boolean evaluate(ParameterInterface<?>[] parameters, double[] measurements, Double[] setpoints);
+	boolean evaluate(ParameterInterface<?>[] parameters, double[] measurements, Double[] setpoints, long dtSec);
 
 	double[] get();
 }
